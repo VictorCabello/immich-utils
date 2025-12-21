@@ -178,7 +178,7 @@ do
 
   if [ "$http_status" -ge 200 ] && [ "$http_status" -lt 300 ]; then
     echo "  -> Success: Uploaded successfully."
-    id=$(echo "$body" | sed -n 's/.*"id":"\([^'\"]*\)".*/\1/p')
+    id=$(echo "$body" | sed -n 's/.*"id":"\([^"]*\)".*/\1/p')
     echo "  -> Immich ID: $id"
   else
     echo "  -> Error: Upload failed with status ${http_status}." >&2
