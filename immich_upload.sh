@@ -174,7 +174,7 @@ do
 
   # Process response
   http_status=$(echo "$response" | tr -d '\n' | sed -e 's/.*HTTPSTATUS://')
-  body=$(echo "$response" | sed -e 's/HTTPSTATUS\:.*//g')
+  body=$(echo "$response" | sed -e 's/HTTPSTATUS:.*//g')
 
   if [ "$http_status" -ge 200 ] && [ "$http_status" -lt 300 ]; then
     echo "  -> Success: Uploaded successfully."
