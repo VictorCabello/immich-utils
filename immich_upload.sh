@@ -9,7 +9,7 @@ IMMICH_URL_DEFAULT="http://localhost:2283"
 
 # Default delay between uploads in seconds.
 # Can be overridden by config file or environment variables.
-IMMICH_UPLOAD_DELAY_DEFAULT="0.5"
+IMMICH_UPLOAD_DELAY_DEFAULT="30.5"
 
 # --- Script ---
 
@@ -161,11 +161,25 @@ function ping_server() {
 ping_server
 
 # --- Upload Logic ---
+REPORT_FILE="immich_upload_report_$(date +%Y-%m-%d_%H%M%S).log"
+SUCCESS_COUNT=0
+FAIL_COUNT=0
+
 echo "Starting upload..."
 echo "  Target Directory: $FINAL_TARGET_DIR"
 echo "  Immich URL:       $FINAL_IMMICH_URL"
 echo "  Upload Delay:     ${FINAL_UPLOAD_DELAY}s"
+echo "A detailed log will be saved to: $REPORT_FILE"
 echo ""
+
+# Initialize report file
+echo "Immich Upload Report" > "$REPORT_FILE"
+echo "====================" >> "$REPORT_FILE"
+echo "Date: $(date)" >> "$REPORT_FILE"
+echo "Target Directory: $FINAL_TARGET_DIR" >> "$REPORT_FILE"
+echo "Immich URL: $FINAL_IMMICH_URL" >> "$REPORT_FILE"
+echo "====================" >> "$REPORT_FILE"
+echo "" >> "$REPORT_FILE"
 
 # Find and upload files
 find "$FINAL_TARGET_DIR" -type f \( -iname "*.jpg" -o -iname "*.jpeg" -o -iname "*.png" -o -iname "*.gif" -o -iname "*.webp" \) -print0 | while IFS= read -r -d $'\0' file;
@@ -182,7 +196,10 @@ do
   fi
 
   if [ -z "$createdAt" ]; then
-    echo "  -> Error: Could not determine creation date for file. Skipping." >&2
+    error_message="Could not determine creation date for file. Skipping."
+    echo "  -> Error: $error_message" >&2
+    echo "[ERROR] File: $file - $error_message" >> "$REPORT_FILE"
+    FAIL_COUNT=$((FAIL_COUNT + 1))
     continue
   fi
 
@@ -208,17 +225,32 @@ do
   body=$(echo "$response" | sed -e 's/HTTPSTATUS:.*//g')
 
   if [ "$http_status" -ge 200 ] && [ "$http_status" -lt 300 ]; then
-    echo "  -> Success: Uploaded successfully."
     id=$(echo "$body" | sed -n 's/.*"id":"\([^"]*\)".*/\1/p')
+    echo "  -> Success: Uploaded successfully."
     echo "  -> Immich ID: $id"
+    echo "[SUCCESS] File: $file - Immich ID: $id" >> "$REPORT_FILE"
+    SUCCESS_COUNT=$((SUCCESS_COUNT + 1))
   else
-    echo "  -> Error: Upload failed with status ${http_status}." >&2
-    echo "  -> Server response: $body" >&2
+    error_message="Upload failed with status ${http_status}. Server response: $body"
+    echo "  -> Error: $error_message" >&2
+    echo "[FAIL] File: $file - $error_message" >> "$REPORT_FILE"
+    FAIL_COUNT=$((FAIL_COUNT + 1))
   fi
   echo "" # Newline for readability
 
   # Pause between uploads to avoid overwhelming the server
   sleep "$FINAL_UPLOAD_DELAY"
 done
+
+echo "======== Upload Summary ========"
+echo "Successfully uploaded: $SUCCESS_COUNT files"
+echo "Failed to upload:      $FAIL_COUNT files"
+echo "=============================="
+echo "Detailed log saved to: $REPORT_FILE"
+
+echo -e "\n\n======== Summary ========" >> "$REPORT_FILE"
+echo "Successfully uploaded: $SUCCESS_COUNT files" >> "$REPORT_FILE"
+echo "Failed to upload:      $FAIL_COUNT files" >> "$REPORT_FILE"
+echo "=========================" >> "$REPORT_FILE"
 
 echo "Upload script finished."
