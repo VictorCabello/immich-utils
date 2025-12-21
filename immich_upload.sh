@@ -135,6 +135,22 @@ if [ ! -d "$FINAL_TARGET_DIR" ]; then
   exit 1
 fi
 
+function ping_server() {
+  echo "Pinging server..."
+  ping_response=$(curl --silent --write-out "HTTPSTATUS:%{http_code}" -X GET "${FINAL_IMMICH_URL}/api/server/ping")
+  http_status=$(echo "$ping_response" | tr -d '\n' | sed -e 's/.*HTTPSTATUS://')
+
+  if [ "$http_status" -eq 200 ]; then
+    echo "Server is reachable."
+  else
+    echo "Error: Server is not reachable. Status: $http_status" >&2
+    exit 1
+  fi
+}
+
+# --- Server Ping ---
+ping_server
+
 # --- Upload Logic ---
 echo "Starting upload..."
 echo "  Target Directory: $FINAL_TARGET_DIR"
@@ -147,16 +163,21 @@ do
   echo "Processing: $file"
 
   # Get the creation date from EXIF data. Fallback to file modification time.
-  createdAt=$(exiftool -s -s -s -DateTimeOriginal -d "%Y-%m-%dT%H:%M:%S.%NZ" "$file")
+  createdAt=$(exiftool -s -s -s -DateTimeOriginal -d "%Y-%m-%dT%H:%M:%S.000Z" "$file")
   if [ -z "$createdAt" ] || [ "$createdAt" = "0000:00:00 00:00:00" ]; then
-      createdAt=$(exiftool -s -s -s -FileModifyDate -d "%Y-%m-%dT%H:%M:%S.%NZ" "$file")
+      createdAt=$(exiftool -s -s -s -FileModifyDate -d "%Y-%m-%dT%H:%M:%S.000Z" "$file")
       echo "  -> Warning: No DateTimeOriginal EXIF tag found. Using file modification date: $createdAt"
   else
       echo "  -> Found creation date: $createdAt"
   fi
 
+  if [ -z "$createdAt" ]; then
+    echo "  -> Error: Could not determine creation date for file. Skipping." >&2
+    continue
+  fi
+
   # Get the file modification date for the modifiedAt field.
-  modifiedAt=$(exiftool -s -s -s -FileModifyDate -d "%Y-%m-%dT%H:%M:%S.%NZ" "$file")
+  modifiedAt=$(exiftool -s -s -s -FileModifyDate -d "%Y-%m-%dT%H:%M:%S.000Z" "$file")
 
   # Create a unique ID for the asset to prevent re-uploads of the same file.
   # Using a combination of filename and a nanosecond timestamp.
@@ -164,13 +185,13 @@ do
 
   # Perform the upload
   response=$(curl --silent --write-out "HTTPSTATUS:%{http_code}" \
-    -X POST "${FINAL_IMMICH_URL}/api/asset/upload" \
+    -X POST "${FINAL_IMMICH_URL}/api/assets" \
     -H "x-api-key: ${FINAL_API_KEY}" \
     -F "deviceAssetId=${deviceAssetId}" \
     -F "deviceId=cli-uploader" \
     -F "assetData=@${file}" \
-    -F "createdAt=${createdAt}" \
-    -F "modifiedAt=${modifiedAt}")
+    -F "fileCreatedAt=${createdAt}" \
+    -F "fileModifiedAt=${modifiedAt}")
 
   # Process response
   http_status=$(echo "$response" | tr -d '\n' | sed -e 's/.*HTTPSTATUS://')
