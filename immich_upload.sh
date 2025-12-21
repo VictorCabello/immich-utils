@@ -7,6 +7,10 @@
 # Can be overridden by config file, environment variables, or command-line arguments.
 IMMICH_URL_DEFAULT="http://localhost:2283"
 
+# Default delay between uploads in seconds.
+# Can be overridden by config file or environment variables.
+IMMICH_UPLOAD_DELAY_DEFAULT="0.5"
+
 # --- Script ---
 
 set -e
@@ -28,9 +32,10 @@ function print_usage() {
   echo "  Priority: Command-line Arguments > Environment Variables > Config File > Defaults."
   echo ""
   echo "  ENVIRONMENT VARIABLES:"
-  echo "    IMMICH_TARGET_DIR:  Target directory."
-  echo "    IMMICH_URL:         Immich server URL."
-  echo "    IMMICH_API_KEY:     Immich API key."
+  echo "    IMMICH_TARGET_DIR:    Target directory."
+  echo "    IMMICH_URL:           Immich server URL."
+  echo "    IMMICH_API_KEY:       Immich API key."
+  echo "    IMMICH_UPLOAD_DELAY:  Delay in seconds between each upload. Defaults to 0.5."
   echo ""
   echo "  CONFIG FILE:"
   echo "    The script searches for 'immich-uploader.conf' in the following locations:"
@@ -42,6 +47,7 @@ function print_usage() {
   echo '    IMMICH_URL="http://your-immich.local:2283"'
   echo '    IMMICH_API_KEY="your-api-key-here"'
   echo '    IMMICH_TARGET_DIR="/path/to/photos"'
+  echo '    IMMICH_UPLOAD_DELAY="0.5"'
 }
 
 function check_deps() {
@@ -59,6 +65,7 @@ function check_deps() {
 _CFG_IMMICH_URL=""
 _CFG_API_KEY=""
 _CFG_TARGET_DIR=""
+_CFG_UPLOAD_DELAY=""
 
 function load_config() {
   CONFIG_FILES=(
@@ -80,8 +87,9 @@ function load_config() {
               IMMICH_URL) _CFG_IMMICH_URL="$value" ;;
               IMMICH_API_KEY) _CFG_API_KEY="$value" ;;
               IMMICH_TARGET_DIR) _CFG_TARGET_DIR="$value" ;;
+              IMMICH_UPLOAD_DELAY) _CFG_UPLOAD_DELAY="$value" ;;
           esac
-      done < <(grep -E '^(IMMICH_URL|IMMICH_API_KEY|IMMICH_TARGET_DIR)' "$config_file")
+      done < <(grep -E '^(IMMICH_URL|IMMICH_API_KEY|IMMICH_TARGET_DIR|IMMICH_UPLOAD_DELAY)' "$config_file")
       return # Load only the first config file found
     fi
   done
@@ -104,6 +112,7 @@ load_config
 FINAL_TARGET_DIR="${1:-${IMMICH_TARGET_DIR:-${_CFG_TARGET_DIR}}}"
 FINAL_IMMICH_URL="${2:-${IMMICH_URL:-${_CFG_IMMICH_URL:-${IMMICH_URL_DEFAULT}}}}"
 FINAL_API_KEY="${3:-${IMMICH_API_KEY:-${_CFG_API_KEY}}}"
+FINAL_UPLOAD_DELAY="${IMMICH_UPLOAD_DELAY:-${_CFG_UPLOAD_DELAY:-${IMMICH_UPLOAD_DELAY_DEFAULT}}}"
 
 # --- Configuration Validation ---
 if [ -z "$FINAL_TARGET_DIR" ]; then
@@ -155,6 +164,7 @@ ping_server
 echo "Starting upload..."
 echo "  Target Directory: $FINAL_TARGET_DIR"
 echo "  Immich URL:       $FINAL_IMMICH_URL"
+echo "  Upload Delay:     ${FINAL_UPLOAD_DELAY}s"
 echo ""
 
 # Find and upload files
@@ -206,6 +216,9 @@ do
     echo "  -> Server response: $body" >&2
   fi
   echo "" # Newline for readability
+
+  # Pause between uploads to avoid overwhelming the server
+  sleep "$FINAL_UPLOAD_DELAY"
 done
 
 echo "Upload script finished."
