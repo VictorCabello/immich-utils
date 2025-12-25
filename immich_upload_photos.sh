@@ -18,7 +18,7 @@ set -o pipefail
 
 # --- Helper Functions ---
 function print_usage() {
-  echo "Usage: $0 [directory] [immich_url] [api_key]"
+  echo "Usage: immich_upload_photos.sh [directory] [immich_url] [api_key]"
   echo ""
   echo "This script recursively finds and uploads images from a directory to Immich."
   echo ""

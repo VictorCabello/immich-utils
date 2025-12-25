@@ -4,7 +4,7 @@ This repository stores a collection of scripts to help manage a personal [Immich
 
 ## Scripts
 
-### `immich_upload.sh`
+### `immich_upload_photos.sh`
 
 A shell script that recursively finds and uploads photos and videos from a specified directory to your Immich server.
 
@@ -49,11 +49,11 @@ You can use the provided `immich-uploader.conf.example` as a template.
 To run the script, you can provide the target directory, Immich URL, and API key as arguments:
 
 ```bash
-./immich_upload.sh /path/to/your/photos http://your-immich-instance:2283 YOUR_API_KEY
+./immich_upload_photos.sh /path/to/your/photos http://your-immich-instance:2283 YOUR_API_KEY
 ```
 
 Alternatively, you can configure the script using environment variables or a configuration file and simply run:
 
 ```bash
-./immich_upload.sh
+./immich_upload_photos.sh
 ```
