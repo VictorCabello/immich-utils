@@ -1,6 +1,7 @@
 #!/bin/bash
 
 # A script to recursively upload videos from a directory to an Immich server.
+# Includes pause and resume functionality.
 
 # --- Configuration ---
 # Default Immich server URL.
@@ -9,7 +10,8 @@ IMMICH_URL_DEFAULT="http://localhost:2283"
 
 # Default delay between uploads in seconds.
 # Can be overridden by config file or environment variables.
-IMMICH_UPLOAD_DELAY_DEFAULT="30.5"
+# Note: The original script had 30.5 here, but 0.5 in documentation. Using 0.5.
+IMMICH_UPLOAD_DELAY_DEFAULT="0.5"
 
 # --- Script ---
 
@@ -21,6 +23,7 @@ function print_usage() {
   echo "Usage: immich_upload_videos.sh [directory] [immich_url] [api_key]"
   echo ""
   echo "This script recursively finds and uploads videos from a directory to Immich."
+  echo "It supports resuming interrupted uploads and pausing."
   echo ""
   echo "ARGUMENTS:"
   echo "  [directory]:   The directory to upload videos from. Overrides config and env var."
@@ -48,6 +51,16 @@ function print_usage() {
   echo '    IMMICH_API_KEY="your-api-key-here"'
   echo '    IMMICH_TARGET_DIR="/path/to/photos"'
   echo '    IMMICH_UPLOAD_DELAY="0.5"'
+  echo ""
+  echo "PAUSE & RESUME:"
+  echo "  The script keeps track of uploaded files in:"
+  echo "    ~/.config/immich-uploader/uploaded_videos.log"
+  echo "  If the script is interrupted, it will resume from where it left off on the next run."
+  echo ""
+  echo "  To pause the upload, create a pause file:"
+  echo "    touch ~/.config/immich-uploader/pause_upload"
+  echo "  The script will pause before uploading the next file. To resume, delete the file:"
+  echo "    rm ~/.config/immich-uploader/pause_upload"
 }
 
 function check_deps() {
@@ -144,6 +157,15 @@ if [ ! -d "$FINAL_TARGET_DIR" ]; then
   exit 1
 fi
 
+# --- State and Pause configuration ---
+STATE_DIR="$HOME/.config/immich-uploader"
+UPLOADED_LOG_FILE="$STATE_DIR/uploaded_videos.log"
+PAUSE_FILE="$STATE_DIR/pause_upload"
+
+# Create state directory and files if they don't exist
+mkdir -p "$STATE_DIR"
+touch "$UPLOADED_LOG_FILE"
+
 function ping_server() {
   echo "Pinging server..."
   ping_response=$(curl --silent --write-out "HTTPSTATUS:%{http_code}" -X GET "${FINAL_IMMICH_URL}/api/server/ping")
@@ -164,12 +186,18 @@ ping_server
 REPORT_FILE="immich_video_upload_report_$(date +%Y-%m-%d_%H%M%S).log"
 SUCCESS_COUNT=0
 FAIL_COUNT=0
+SKIPPED_COUNT=0
+
+# Count total files
+TOTAL_FILES=$(find "$FINAL_TARGET_DIR" -type f \( -iname "*.mp4" -o -iname "*.mov" -o -iname "*.avi" -o -iname "*.mkv" -o -iname "*.webm" -o -iname "*.mpg" -o -iname "*.mpeg" \) | wc -l)
 
 echo "Starting upload..."
 echo "  Target Directory: $FINAL_TARGET_DIR"
 echo "  Immich URL:       $FINAL_IMMICH_URL"
 echo "  Upload Delay:     ${FINAL_UPLOAD_DELAY}s"
+echo "  Found $TOTAL_FILES video files to process."
 echo "A detailed log will be saved to: $REPORT_FILE"
+echo "To pause, run: touch \"$PAUSE_FILE\""
 echo ""
 
 # Initialize report file
@@ -182,8 +210,21 @@ echo "===================" >> "$REPORT_FILE"
 echo "" >> "$REPORT_FILE"
 
 # Find and upload files
-find "$FINAL_TARGET_DIR" -type f \( -iname "*.mp4" -o -iname "*.mov" -o -iname "*.avi" -o -iname "*.mkv" -o -iname "*.webm" -o -iname "*.mpg" -o -iname "*.mpeg" \) -print0 | while IFS= read -r -d $'\0' file;
+find "$FINAL_TARGET_DIR" -type f \( -iname "*.mp4" -o -iname "*.mov" -o -iname "*.avi" -o -iname "*.mkv" -o -iname "*.webm" -o -iname "*.mpg" -o -iname "*.mpeg" \) -print0 | while IFS= read -r -d $'' file;
 do
+  # Pause mechanism
+  while [ -f "$PAUSE_FILE" ]; do
+    echo "Upload is paused. To resume, run: rm \"$PAUSE_FILE\""
+    sleep 15
+  done
+
+  # Check if file was already uploaded
+  if grep -qFx -- "$file" "$UPLOADED_LOG_FILE"; then
+    echo "Skipping already uploaded file: $file"
+    SKIPPED_COUNT=$((SKIPPED_COUNT + 1))
+    continue
+  fi
+
   echo "Processing: $file"
 
   # Get the creation date from EXIF data. Fallback to file modification time.
@@ -225,9 +266,10 @@ do
   body=$(echo "$response" | sed -e 's/HTTPSTATUS:.*//g')
 
   if [ "$http_status" -ge 200 ] && [ "$http_status" -lt 300 ]; then
-    id=$(echo "$body" | sed -n 's/.*"id":"\([^'\"]*\)".*/\1/p')
+    id=$(echo "$body" | sed -n 's/.*"id":"\([^"]*\)".*/\1/p')
     echo "  -> Success: Uploaded successfully."
     echo "  -> Immich ID: $id"
+    echo "$file" >> "$UPLOADED_LOG_FILE"
     echo "[SUCCESS] File: $file - Immich ID: $id" >> "$REPORT_FILE"
     SUCCESS_COUNT=$((SUCCESS_COUNT + 1))
   else
@@ -243,13 +285,17 @@ do
 done
 
 echo "======== Upload Summary ========"
+echo "Total files:           $TOTAL_FILES"
 echo "Successfully uploaded: $SUCCESS_COUNT files"
+echo "Skipped (already done):$SKIPPED_COUNT files"
 echo "Failed to upload:      $FAIL_COUNT files"
 echo "==============================="
 echo "Detailed log saved to: $REPORT_FILE"
 
 echo -e "\n\n======== Summary ========" >> "$REPORT_FILE"
+echo "Total files:           $TOTAL_FILES" >> "$REPORT_FILE"
 echo "Successfully uploaded: $SUCCESS_COUNT files" >> "$REPORT_FILE"
+echo "Skipped (already done):$SKIPPED_COUNT files" >> "$REPORT_FILE"
 echo "Failed to upload:      $FAIL_COUNT files" >> "$REPORT_FILE"
 echo "=========================" >> "$REPORT_FILE"
 
