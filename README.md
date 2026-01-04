@@ -57,3 +57,58 @@ Alternatively, you can configure the script using environment variables or a con
 ```bash
 ./immich_upload_photos.sh
 ```
+
+### `immich_upload_videos.sh`
+
+Similar to the photo uploader, but specialized for video formats and includes pause/resume functionality.
+
+### `immich_dvd_calc.sh`
+
+A script to calculate the number of DVDs needed to backup all images and videos from your Immich server.
+
+#### Features
+
+*   **Storage Statistics:** Fetches real-time storage data from the Immich API.
+*   **Precise Calculation:** Uses `awk` for floating-point math to provide exact and rounded-up DVD counts.
+*   **Human-Readable Output:** Formats byte sizes into KB, MB, GB, or TB for easy reading.
+
+#### Usage
+
+```bash
+./immich_dvd_calc.sh
+```
+
+---
+
+### `immich_dvd_backup.sh`
+
+A script to perform the actual backup of your Immich gallery into DVD-sized chunks.
+
+#### Features
+
+*   **State Management:** Tracks progress in a JSON state file, allowing you to stop and resume the backup at any time.
+*   **Chunked Downloads:** Automatically groups assets into 4.7 GB (DVD-sized) directories.
+*   **Oldest First:** Downloads assets in chronological order (oldest first).
+*   **Conflict Resolution:** Handles duplicate filenames by appending the asset ID.
+
+#### Configuration
+
+In addition to the standard `IMMICH_URL` and `IMMICH_API_KEY`, this script uses:
+
+| Variable                   | Description                                                                 |
+| -------------------------- | --------------------------------------------------------------------------- |
+| `IMMICH_BACKUP_DIR`        | Directory where DVD chunks will be saved (defaults to `./immich_backups`). |
+| `IMMICH_BACKUP_STATE_FILE` | Path to the progress state file (defaults to `./immich_backup_state.json`). |
+
+#### Usage
+
+```bash
+./immich_dvd_backup.sh
+```
+
+## Dependencies
+
+*   `curl`: To make HTTP requests to the Immich API.
+*   `exiftool`: To read metadata from media files (used by uploaders).
+*   `jq`: To parse JSON responses from the Immich API (used by backup scripts).
+*   `awk`: For calculations and formatting (used by backup scripts).
