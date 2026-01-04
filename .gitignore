@@ -1,1 +1,7 @@
 *.log
+*.conf
+*.json
+immich_backups/
+test_backups/
+__pycache__/
+.env*

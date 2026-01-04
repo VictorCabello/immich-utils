@@ -106,9 +106,40 @@ In addition to the standard `IMMICH_URL` and `IMMICH_API_KEY`, this script uses:
 ./immich_dvd_backup.sh
 ```
 
+---
+
+### `immich_dvd_backup_local.py`
+
+An optimized Python script for **local** Immich instances. It bypasses the API for file transfers, making it significantly faster, and includes interactive ISO generation.
+
+#### Features
+
+*   **Interactive Selection:** Pre-calculates all required DVDs and lets you choose which one to back up.
+*   **ISO Generation:** Automatically creates a bootable ISO image for each DVD chunk.
+*   **Date-Based Organization:** Groups assets chronologically (e.g., "2008 to 2010") for logical archiving.
+*   **High Performance:** Uses direct database access and local filesystem operations (hardlinks or parallel copying).
+*   **Hardlink Support:** Use `--use-links` to make the "copy" process instantaneous and save disk space.
+
+#### Dependencies
+
+*   `python3`: To run the script.
+*   `docker`: To access the Immich database.
+*   `xorriso`, `genisoimage`, or `mkisofs`: To generate ISO images.
+
+#### Usage
+
+```bash
+# Standard backup with 8 parallel threads
+./immich_dvd_backup_local.py --backup-dir ./my_backups --threads 8
+
+# Instantaneous backup using hardlinks (if on the same disk)
+./immich_dvd_backup_local.py --backup-dir ./my_backups --use-links
+```
+
+---
+
 ## Dependencies
 
-*   `curl`: To make HTTP requests to the Immich API.
-*   `exiftool`: To read metadata from media files (used by uploaders).
-*   `jq`: To parse JSON responses from the Immich API (used by backup scripts).
-*   `awk`: For calculations and formatting (used by backup scripts).
+*   **Core Tools**: `curl`, `jq`, `awk`.
+*   **Metadata**: `exiftool`.
+*   **Local Backup**: `python3`, `docker`, `libisoburn` (for `xorriso`).
