@@ -9,3 +9,9 @@ IMMICH_API_KEY="YOUR_IMMICH_API_KEY_HERE"
 # The default directory to upload photos from (e.g., "/path/to/your/photos")
 # This can be overridden by providing a directory as a command-line argument.
 IMMICH_TARGET_DIR="/path/to/your/photos"
+
+# --- Backup Configuration ---
+# Directory where DVD chunks will be downloaded.
+IMMICH_BACKUP_DIR="./immich_backups"
+# Path to the state file that tracks backup progress.
+IMMICH_BACKUP_STATE_FILE="./immich_backup_state.json"
