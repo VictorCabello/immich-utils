@@ -138,6 +138,80 @@ An optimized Python script for **local** Immich instances. It bypasses the API f
 
 ---
 
+### `immich_dvd_verify.py`
+
+A Python script to verify the integrity and content of a DVD backup directory created by `immich_dvd_backup_local.py`.
+
+#### Features
+
+*   **File inventory:** Counts and categorizes files by type (images, videos, other).
+*   **Size check:** Verifies total size against DVD capacity (4.7 GB by default).
+*   **Date range:** Extracts the chronological range covered by the backup from filenames.
+*   **Empty file detection:** Flags any zero-byte files.
+*   **EXIF validation:** Samples a configurable number of files and checks that their EXIF `DateTimeOriginal` matches the date encoded in the filename.
+*   **Exit code:** Returns `0` if no issues are found, `1` otherwise — suitable for use in scripts.
+
+#### Dependencies
+
+*   `python3`: To run the script.
+*   `exiftool` *(optional)*: For EXIF date validation. Install with `sudo pacman -S perl-image-exiftool`. If not present, the EXIF check is skipped automatically.
+
+#### Usage
+
+```bash
+# Basic verification
+./immich_dvd_verify.py /run/media/user/DVD_1
+
+# Show per-file details for any issues found
+./immich_dvd_verify.py /run/media/user/DVD_1 --verbose
+
+# Increase EXIF sample size
+./immich_dvd_verify.py ./immich_backups/DVD_3 --exif-sample 50
+
+# Skip EXIF check entirely
+./immich_dvd_verify.py /mnt/dvd --exif-sample 0
+```
+
+| Argument | Default | Description |
+| --- | --- | --- |
+| `path` | *(required)* | Path to the DVD mount point or backup directory. |
+| `--exif-sample N` | `20` | Number of files to sample for EXIF date validation. Set to `0` to skip. |
+| `--verbose` / `-v` | off | Print per-file details for mismatches, empty files, and undated filenames. |
+| `--capacity BYTES` | `4700000000` | Override the DVD capacity threshold used for the size check. |
+
+#### Example output
+
+```
+Verifying: /run/media/user/DVD_1
+============================================================
+
+Files
+  Total : 2360
+  Images: 2261
+  Videos: 89
+  Other : 10 (.gif:10)
+
+Size: 4.40 GB (95.5% of DVD capacity)
+
+Date range (from filenames)
+  From : 2012-11-11  (2012-11-11 13.32.12.jpg)
+  To   : 2015-10-28  (20151028_191058.jpg)
+  With date in name    : 1953
+  Without date in name : 407
+
+Empty files: 0
+
+EXIF validation (sample: 20 files)
+  With EXIF date    : 19/20
+  Without EXIF date : 1/20
+  Date consistency  : OK
+
+============================================================
+RESULT: OK — no issues found
+```
+
+---
+
 ## Dependencies
 
 *   **Core Tools**: `curl`, `jq`, `awk`.
